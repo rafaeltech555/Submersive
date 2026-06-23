@@ -18,6 +18,7 @@ export class Overlay {
   private bilingual = false
   private showOriginal = true
   private originalFirst = true
+  private fontScale = 1
   setBilingual(v: boolean) { this.bilingual = v }
 
   setCues(cues: Cue[]) { this.cues = cues }
@@ -43,10 +44,10 @@ export class Overlay {
     const hasTrans = this.bilingual && !!cue.translated
     const orig = document.createElement('div')
     orig.textContent = cue.text
-    Object.assign(orig.style, { fontSize: '90%', opacity: '0.8' })
+    Object.assign(orig.style, { fontSize: `${90 * this.fontScale}%`, opacity: '0.8' })
     const trans = document.createElement('div')
     trans.textContent = cue.translated ?? ''
-    Object.assign(trans.style, { fontSize: '120%' })
+    Object.assign(trans.style, { fontSize: `${120 * this.fontScale}%` })
     const lines: HTMLElement[] = []
     if (hasTrans) {
       if (this.showOriginal) lines.push(...(this.originalFirst ? [orig, trans] : [trans, orig]))
@@ -60,5 +61,8 @@ export class Overlay {
   applySettings(s: Settings) {
     this.showOriginal = s.showOriginal
     this.originalFirst = s.originalFirst
+    this.fontScale = s.fontScale
+    this.el.style.bottom = `${(1 - s.verticalPos) * 100}%`
+    this.el.style.background = `rgba(0,0,0,${s.bgOpacity})`
   }
 }
