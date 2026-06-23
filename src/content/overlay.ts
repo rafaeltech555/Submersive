@@ -15,6 +15,9 @@ export class Overlay {
     } as Partial<CSSStyleDeclaration>)
   }
 
+  private bilingual = false
+  setBilingual(v: boolean) { this.bilingual = v }
+
   setCues(cues: Cue[]) { this.cues = cues }
 
   mount() {
@@ -33,10 +36,19 @@ export class Overlay {
     this.raf = requestAnimationFrame(this.loop)
   }
 
-  // M1：只渲染原文；M2 會擴充雙語
   private render(cue?: Cue) {
-    if (!cue) { this.el.textContent = ''; return }
-    this.el.textContent = cue.text
+    if (!cue) { this.el.replaceChildren(); return }
+    const frag = document.createDocumentFragment()
+    const orig = document.createElement('div')
+    orig.textContent = cue.text
+    Object.assign(orig.style, { fontSize: '90%', opacity: '0.8' })
+    const trans = document.createElement('div')
+    trans.textContent = cue.translated ?? ''
+    Object.assign(trans.style, { fontSize: '120%' })
+    // 原文在上、譯文在下
+    if (this.bilingual && cue.translated) { frag.append(orig, trans) }
+    else { frag.append(orig) }
+    this.el.replaceChildren(frag)
   }
 
   // M2/M5 用：套用設定樣式（M1 先留空實作）
