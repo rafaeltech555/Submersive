@@ -10,9 +10,9 @@ export class Overlay {
     this.el.id = 'dualsub-overlay'
     Object.assign(this.el.style, {
       position: 'absolute', left: '0', right: '0', bottom: '8%',
-      textAlign: 'center', pointerEvents: 'none', zIndex: '60',
+      textAlign: 'center', color: '#fff', pointerEvents: 'none', zIndex: '60',
       textShadow: '0 0 4px #000',
-    } as CSSStyleDeclaration)
+    } as Partial<CSSStyleDeclaration>)
   }
 
   setCues(cues: Cue[]) { this.cues = cues }
@@ -20,6 +20,7 @@ export class Overlay {
   mount() {
     const anchor = this.getAnchor()
     if (anchor && !anchor.contains(this.el)) anchor.appendChild(this.el)
+    if (this.raf) cancelAnimationFrame(this.raf)
     this.loop()
   }
 

@@ -8,7 +8,7 @@ window.fetch = async function (...args: Parameters<typeof fetch>) {
       const clone = res.clone()
       clone.text().then((raw) => {
         window.postMessage({ source: 'dualsub-hook', kind: 'timedtext', url, raw }, '*')
-      })
+      }).catch(() => { /* 忽略讀取失敗，不影響原請求 */ })
     }
   } catch {
     /* 不影響原請求 */
