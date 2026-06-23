@@ -15,12 +15,16 @@ export default defineManifest({
   content_scripts: [
     {
       matches: ['https://*.youtube.com/*'],
+      js: ['src/inject/hook.ts'],
+      run_at: 'document_start',
+      world: 'MAIN',
+    },
+    {
+      matches: ['https://*.youtube.com/*'],
       js: ['src/content/content.ts'],
       run_at: 'document_start',
+      world: 'ISOLATED',
     },
-  ],
-  web_accessible_resources: [
-    { resources: ['src/inject/hook.ts'], matches: ['https://*.youtube.com/*'] },
   ],
   options_page: 'src/options/options.html',
   action: { default_popup: 'src/popup/popup.html' },

@@ -246,13 +246,19 @@ export default defineManifest({
   content_scripts: [
     {
       matches: ['https://*.youtube.com/*'],
+      js: ['src/inject/hook.ts'],
+      run_at: 'document_start',
+      world: 'MAIN',
+    },
+    {
+      matches: ['https://*.youtube.com/*'],
       js: ['src/content/content.ts'],
       run_at: 'document_start',
+      world: 'ISOLATED',
     },
   ],
-  web_accessible_resources: [
-    { resources: ['src/inject/hook.ts'], matches: ['https://*.youtube.com/*'] },
-  ],
+  // web_accessible_resources 不再需要——hook 已透過 content_scripts[world: MAIN] 注入，
+  // crxjs 會為 content script assets 自動產生此欄位，但不用手動宣告 hook.ts。
   options_page: 'src/options/options.html',
   action: { default_popup: 'src/popup/popup.html' },
 })
@@ -800,9 +806,9 @@ console.log('[dualsub] timedtext hook installed')
 Run: `cd dualsub && npm run build`
 Expected: 無錯誤。
 
-- [ ] **Step 3: 手動驗證攔截（在 Task 10 載入 hook 後一起驗）**
+- [ ] **Step 3: 手動驗證攔截（在 Task 10 完整串接後一起驗）**
 
-說明：hook 由 content script 注入（見 Task 10），此步驟僅確認 build 產物含 `hook.ts`。重新載入擴充套件後於 Task 10 一併驗證 console 是否印出 `timedtext hook installed`。
+說明：hook 以 `world: 'MAIN'` content script 的形式由 manifest 自動注入（crxjs 會將 `src/inject/hook.ts` 轉譯為 JS bundle），**不需要** `web_accessible_resources` 也不需要 content script 手動建立 `<script>` 標籤。此步驟僅確認 build 產物中 hook 已被轉譯（`dist/assets/hook.ts-*.js` 為純 JS，無 TypeScript 語法）。重新載入擴充套件後於 Task 10 一併驗證 console 是否印出 `[dualsub] timedtext hook installed`。
 
 - [ ] **Step 4: Commit**
 
@@ -846,13 +852,8 @@ export class YouTubeAdapter implements SiteAdapter {
   private listeners: ((cues: Cue[], ctx: VideoContext) => void)[] = []
 
   constructor() {
-    // 注入 MAIN-world hook
-    const s = document.createElement('script')
-    s.src = chrome.runtime.getURL('src/inject/hook.ts')
-    s.onload = () => s.remove()
-    ;(document.head || document.documentElement).appendChild(s)
-
-    // 接收 hook 廣播
+    // hook 已由 manifest content_scripts[world: MAIN] 自動注入，
+    // 這裡只需監聽它廣播的 postMessage。
     window.addEventListener('message', (ev) => {
       const d = ev.data
       if (ev.source !== window || !d || d.source !== 'dualsub-hook' || d.kind !== 'timedtext') return
