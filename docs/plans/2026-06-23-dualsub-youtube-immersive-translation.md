@@ -1517,6 +1517,22 @@ cd dualsub && git add -A && git commit -m "feat: local LibreTranslate adapter, f
 
 ---
 
+## Task 16: AzureAdapter（循環免費引擎）
+
+**新增 `src/translation/azure-adapter.ts`**：使用 Azure Translator Text API v3 批次端點（`POST https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=<code>`）。`maxCharsPerReq` 設為 45000（v3 限額）；TARGET_MAP 含 `zh-TW → zh-Hant`、`zh-CN → zh-Hans`、`en`、`ja`、`ko`。方案層：每月 2M characters 循環免費（Azure 免費層）。
+
+**EngineId 擴充**（`src/types.ts`）：`'deepl' | 'local' | 'azure'`。
+
+**`pickAdapter` 更新**（`src/background/background.ts`）：讀取 `azureKey`、`azureRegion` 從 storage；新增 `engine === 'azure'` 分支。fallback 條件由 `engine === 'deepl'` 改為 `engine !== 'local'`，使 deepl 與 azure 兩者皆可 fallback 本機 LibreTranslate。
+
+**Options UI**（`src/options/options.html` + `options.ts`）：engine select 新增 `<option value="azure">Microsoft Azure（免費 2M/月）</option>`；新增 `azureKey`（password input）與 `azureRegion`（text input，placeholder `eastasia`）兩個設定欄位；init/save 均納入 `azureKey`、`azureRegion` 的 storage 讀寫。
+
+**Manifest**（`src/manifest.ts`）：`host_permissions` 新增 `'https://api.cognitive.microsofttranslator.com/*'`。
+
+**TDD**：`tests/azure-adapter.test.ts` 2 tests（批次回傳等長、HTTP 非 2xx throw）。
+
+---
+
 ## Self-Review 結果
 
 **Spec coverage：**

@@ -12,10 +12,12 @@
   </label><br><br>
   <label><input type="checkbox" id="showOriginal"> 顯示原文字幕</label><br><br>
   <label>翻譯引擎
-    <select id="engine"><option value="deepl">DeepL（免費）</option><option value="local">本機 LibreTranslate</option></select>
+    <select id="engine"><option value="deepl">DeepL（免費）</option><option value="local">本機 LibreTranslate</option><option value="azure">Microsoft Azure（免費 2M/月）</option></select>
   </label><br><br>
   <label>DeepL API Key <input id="deeplKey" type="password" size="36"></label><br><br>
   <label>本機 server URL <input id="localUrl" type="text" size="36" placeholder="http://localhost:5000"></label><br><br>
+  <label>Azure Key <input id="azureKey" type="password" size="36"></label><br><br>
+  <label>Azure Region <input id="azureRegion" type="text" size="20" placeholder="eastasia"></label><br><br>
   <label><input type="checkbox" id="originalFirst"> 原文顯示在譯文上方</label><br><br>
   <label>字級倍率 <input id="fontScale" type="number" min="0.5" max="2" step="0.1" style="width:5em"></label><br><br>
   <label>垂直位置 (0=最上, 1=最下) <input id="verticalPos" type="number" min="0" max="1" step="0.05" style="width:5em"></label><br><br>

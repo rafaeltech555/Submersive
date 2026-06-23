@@ -10,7 +10,7 @@ export interface VideoContext {
   srcLang: string | null  // 字幕原文語言（可能未知）
 }
 
-export type EngineId = 'deepl' | 'local'
+export type EngineId = 'deepl' | 'local' | 'azure'
 
 export interface Settings {
   targetLang: string      // 例 'zh-TW'

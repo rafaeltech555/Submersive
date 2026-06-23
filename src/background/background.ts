@@ -2,14 +2,16 @@ import type { Message, Cue, EngineId } from '../types'
 import { chunkCues } from '../core/chunker'
 import { DeepLAdapter } from '../translation/deepl-adapter'
 import { LocalAdapter } from '../translation/local-adapter'
+import { AzureAdapter } from '../translation/azure-adapter'
 import type { TranslationAdapter } from '../translation/adapter'
 import { runWithRetry } from '../translation/queue'
 import { cacheKey } from '../core/cache-key'
 import { getCached, putCached } from '../core/cache'
 
 async function pickAdapter(engine: EngineId): Promise<TranslationAdapter> {
-  const { deeplKey, localUrl } = await chrome.storage.local.get(['deeplKey', 'localUrl'])
+  const { deeplKey, localUrl, azureKey, azureRegion } = await chrome.storage.local.get(['deeplKey', 'localUrl', 'azureKey', 'azureRegion'])
   if (engine === 'local') return new LocalAdapter(localUrl ?? 'http://localhost:5000')
+  if (engine === 'azure') return new AzureAdapter(azureKey ?? '', azureRegion ?? '')
   return new DeepLAdapter(deeplKey ?? '')
 }
 
@@ -39,8 +41,8 @@ async function translateCues(
     return await translateWith(primary, cues, srcLang, targetLang)
   } catch (e) {
     const { localUrl } = await chrome.storage.local.get('localUrl')
-    if (engine === 'deepl' && localUrl) {
-      console.warn('[submersive] DeepL 失敗，fallback 本機', e)
+    if (engine !== 'local' && localUrl) {
+      console.warn('[submersive] 翻譯失敗，fallback 本機', e)
       return await translateWith(new LocalAdapter(localUrl), cues, srcLang, targetLang)
     }
     throw e

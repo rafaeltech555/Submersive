@@ -11,22 +11,24 @@ async function init() {
   $('fontScale').value = String(s.fontScale)
   $('verticalPos').value = String(s.verticalPos)
   $('bgOpacity').value = String(s.bgOpacity)
-  const { deeplKey, localUrl } = await chrome.storage.local.get(['deeplKey', 'localUrl'])
+  const { deeplKey, localUrl, azureKey, azureRegion } = await chrome.storage.local.get(['deeplKey', 'localUrl', 'azureKey', 'azureRegion'])
   $('deeplKey').value = deeplKey ?? ''
   $('localUrl').value = localUrl ?? 'http://localhost:5000'
+  $('azureKey').value = azureKey ?? ''
+  $('azureRegion').value = azureRegion ?? 'eastasia'
 }
 
 $('save').addEventListener('click', async () => {
   await saveSettings({
     targetLang: $('targetLang').value,
     showOriginal: $('showOriginal').checked,
-    engine: $('engine').value as 'deepl' | 'local',
+    engine: $('engine').value as 'deepl' | 'local' | 'azure',
     originalFirst: $('originalFirst').checked,
     fontScale: parseFloat($('fontScale').value),
     verticalPos: parseFloat($('verticalPos').value),
     bgOpacity: parseFloat($('bgOpacity').value),
   })
-  await chrome.storage.local.set({ deeplKey: $('deeplKey').value, localUrl: $('localUrl').value })
+  await chrome.storage.local.set({ deeplKey: $('deeplKey').value, localUrl: $('localUrl').value, azureKey: $('azureKey').value, azureRegion: $('azureRegion').value })
   document.getElementById('status')!.textContent = '已儲存'
 })
 

@@ -9,6 +9,7 @@ export default defineManifest({
   host_permissions: [
     'https://*.youtube.com/*',
     'https://api-free.deepl.com/*',
+    'https://api.cognitive.microsofttranslator.com/*',
     'http://localhost:*/*',
     'http://127.0.0.1:*/*',
   ],
