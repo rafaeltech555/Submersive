@@ -16,6 +16,10 @@
   </label><br><br>
   <label>DeepL API Key <input id="deeplKey" type="password" size="36"></label><br><br>
   <label>本機 server URL <input id="localUrl" type="text" size="36" placeholder="http://localhost:5000"></label><br><br>
+  <label><input type="checkbox" id="originalFirst"> 原文顯示在譯文上方</label><br><br>
+  <label>字級倍率 <input id="fontScale" type="number" min="0.5" max="2" step="0.1" style="width:5em"></label><br><br>
+  <label>垂直位置 (0=最上, 1=最下) <input id="verticalPos" type="number" min="0" max="1" step="0.05" style="width:5em"></label><br><br>
+  <label>背景透明度 (0–1) <input id="bgOpacity" type="number" min="0" max="1" step="0.05" style="width:5em"></label><br><br>
   <button id="save">儲存</button> <span id="status"></span>
   <script type="module" src="./options.ts"></script>
 </body>

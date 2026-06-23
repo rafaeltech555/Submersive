@@ -240,7 +240,8 @@ export default defineManifest({
   host_permissions: [
     'https://*.youtube.com/*',
     'https://api-free.deepl.com/*',
-    'http://localhost/*',
+    'http://localhost:*/*',
+    'http://127.0.0.1:*/*',
   ],
   background: { service_worker: 'src/background/background.ts', type: 'module' },
   content_scripts: [
@@ -1198,6 +1199,10 @@ Expected: PASS（2 passed）。注意：此測試需 `chrome` 全域；`mergeSet
   </label><br><br>
   <label>DeepL API Key <input id="deeplKey" type="password" size="36"></label><br><br>
   <label>本機 server URL <input id="localUrl" type="text" size="36" placeholder="http://localhost:5000"></label><br><br>
+  <label><input type="checkbox" id="originalFirst"> 原文顯示在譯文上方</label><br><br>
+  <label>字級倍率 <input id="fontScale" type="number" min="0.5" max="2" step="0.1" style="width:5em"></label><br><br>
+  <label>垂直位置 (0=最上, 1=最下) <input id="verticalPos" type="number" min="0" max="1" step="0.05" style="width:5em"></label><br><br>
+  <label>背景透明度 (0–1) <input id="bgOpacity" type="number" min="0" max="1" step="0.05" style="width:5em"></label><br><br>
   <button id="save">儲存</button> <span id="status"></span>
   <script type="module" src="./options.ts"></script>
 </body>
@@ -1215,6 +1220,10 @@ async function init() {
   $('targetLang').value = s.targetLang
   $('showOriginal').checked = s.showOriginal
   $('engine').value = s.engine
+  $('originalFirst').checked = s.originalFirst
+  $('fontScale').value = String(s.fontScale)
+  $('verticalPos').value = String(s.verticalPos)
+  $('bgOpacity').value = String(s.bgOpacity)
   const { deeplKey, localUrl } = await chrome.storage.local.get(['deeplKey', 'localUrl'])
   $('deeplKey').value = deeplKey ?? ''
   $('localUrl').value = localUrl ?? 'http://localhost:5000'
@@ -1225,6 +1234,10 @@ $('save').addEventListener('click', async () => {
     targetLang: $('targetLang').value,
     showOriginal: $('showOriginal').checked,
     engine: $('engine').value as 'deepl' | 'local',
+    originalFirst: $('originalFirst').checked,
+    fontScale: parseFloat($('fontScale').value),
+    verticalPos: parseFloat($('verticalPos').value),
+    bgOpacity: parseFloat($('bgOpacity').value),
   })
   await chrome.storage.local.set({ deeplKey: $('deeplKey').value, localUrl: $('localUrl').value })
   document.getElementById('status')!.textContent = '已儲存'
@@ -1450,6 +1463,14 @@ Run: `cd dualsub && npx vitest run tests/local-adapter.test.ts`
 Expected: PASS（1 passed）。
 
 - [ ] **Step 5: background 依 engine 選 adapter + fallback**
+
+注意：`translateWith` 在 `runWithRetry` 回傳後、`forEach` 回填前，已加入長度防護：
+```ts
+if (translated.length !== chunk.texts.length) {
+  throw new Error(`translation length mismatch: got ${translated.length}, expected ${chunk.texts.length}`)
+}
+```
+此防護防止 adapter 回傳短陣列時將 `undefined` 寫入快取。
 
 把 `translateCues` 改為依 engine 建 adapter，並在 DeepL 失敗時若有 localUrl 則退到 LocalAdapter：
 ```ts

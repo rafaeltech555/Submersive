@@ -23,6 +23,9 @@ async function translateWith(
       () => adapter.translateBatch(chunk.texts, srcLang, targetLang),
       { retries: 3, baseMs: 500 },
     )
+    if (translated.length !== chunk.texts.length) {
+      throw new Error(`translation length mismatch: got ${translated.length}, expected ${chunk.texts.length}`)
+    }
     chunk.indices.forEach((idx, i) => { out[idx].translated = translated[i] })
   }
   return out

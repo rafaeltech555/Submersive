@@ -9,7 +9,8 @@ export default defineManifest({
   host_permissions: [
     'https://*.youtube.com/*',
     'https://api-free.deepl.com/*',
-    'http://localhost/*',
+    'http://localhost:*/*',
+    'http://127.0.0.1:*/*',
   ],
   background: { service_worker: 'src/background/background.ts', type: 'module' },
   content_scripts: [
