@@ -16,6 +16,8 @@ export class Overlay {
   }
 
   private bilingual = false
+  private showOriginal = true
+  private originalFirst = true
   setBilingual(v: boolean) { this.bilingual = v }
 
   setCues(cues: Cue[]) { this.cues = cues }
@@ -38,19 +40,25 @@ export class Overlay {
 
   private render(cue?: Cue) {
     if (!cue) { this.el.replaceChildren(); return }
-    const frag = document.createDocumentFragment()
+    const hasTrans = this.bilingual && !!cue.translated
     const orig = document.createElement('div')
     orig.textContent = cue.text
     Object.assign(orig.style, { fontSize: '90%', opacity: '0.8' })
     const trans = document.createElement('div')
     trans.textContent = cue.translated ?? ''
     Object.assign(trans.style, { fontSize: '120%' })
-    // 原文在上、譯文在下
-    if (this.bilingual && cue.translated) { frag.append(orig, trans) }
-    else { frag.append(orig) }
-    this.el.replaceChildren(frag)
+    const lines: HTMLElement[] = []
+    if (hasTrans) {
+      if (this.showOriginal) lines.push(...(this.originalFirst ? [orig, trans] : [trans, orig]))
+      else lines.push(trans)
+    } else {
+      lines.push(orig) // 還沒翻譯好，先顯示原文
+    }
+    this.el.replaceChildren(...lines)
   }
 
-  // M2/M5 用：套用設定樣式（M1 先留空實作）
-  applySettings(_s: Settings) {}
+  applySettings(s: Settings) {
+    this.showOriginal = s.showOriginal
+    this.originalFirst = s.originalFirst
+  }
 }
