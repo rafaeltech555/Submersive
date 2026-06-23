@@ -3,7 +3,7 @@ import { DeepLAdapter } from '../src/translation/deepl-adapter'
 
 describe('DeepLAdapter', () => {
   it('呼叫免費端點並回傳等長譯文', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async () =>
       new Response(JSON.stringify({ translations: [{ text: '你好' }, { text: '世界' }] }), { status: 200 }),
     )
     const a = new DeepLAdapter('KEY', fetchMock as unknown as typeof fetch)
@@ -12,16 +12,16 @@ describe('DeepLAdapter', () => {
 
     const [url, init] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('api-free.deepl.com/v2/translate')
-    expect((init as RequestInit).headers).toMatchObject({ Authorization: 'DeepL-Auth-Key KEY' })
+    expect((init as unknown as RequestInit).headers).toMatchObject({ Authorization: 'DeepL-Auth-Key KEY' })
   })
 
   it('zh-TW 目標映射到 DeepL 的 ZH-HANT', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async () =>
       new Response(JSON.stringify({ translations: [{ text: '嗨' }] }), { status: 200 }),
     )
     const a = new DeepLAdapter('KEY', fetchMock as unknown as typeof fetch)
     await a.translateBatch(['Hi'], 'en', 'zh-TW')
-    const body = (fetchMock.mock.calls[0][1] as RequestInit).body as URLSearchParams
+    const body = (fetchMock.mock.calls[0][1] as unknown as RequestInit).body as URLSearchParams
     expect(body.get('target_lang')).toBe('ZH-HANT')
   })
 
