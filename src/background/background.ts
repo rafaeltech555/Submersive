@@ -40,7 +40,7 @@ async function translateCues(
   } catch (e) {
     const { localUrl } = await chrome.storage.local.get('localUrl')
     if (engine === 'deepl' && localUrl) {
-      console.warn('[dualsub] DeepL 失敗，fallback 本機', e)
+      console.warn('[submersive] DeepL 失敗，fallback 本機', e)
       return await translateWith(new LocalAdapter(localUrl), cues, srcLang, targetLang)
     }
     throw e
@@ -66,4 +66,4 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
   return true
 })
 
-console.log('[dualsub] background ready')
+console.log('[submersive] background ready')

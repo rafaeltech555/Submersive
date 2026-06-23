@@ -3,7 +3,7 @@ import type { Cue } from '../types'
 
 let dbp: Promise<IDBPDatabase> | null = null
 function db() {
-  if (!dbp) dbp = openDB('dualsub', 1, { upgrade(d) { d.createObjectStore('cues') } })
+  if (!dbp) dbp = openDB('submersive', 1, { upgrade(d) { d.createObjectStore('cues') } })
   return dbp
 }
 

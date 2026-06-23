@@ -1,6 +1,6 @@
 import type { TranslationAdapter, TranslationCapabilities } from './adapter'
 
-// dualsub 內部語言碼 -> DeepL 目標語言碼
+// submersive 內部語言碼 -> DeepL 目標語言碼
 const TARGET_MAP: Record<string, string> = {
   'zh-TW': 'ZH-HANT',
   'zh-CN': 'ZH-HANS',

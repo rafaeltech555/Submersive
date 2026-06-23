@@ -7,7 +7,7 @@ export class Overlay {
 
   constructor(private getTime: () => number, private getAnchor: () => HTMLElement | null) {
     this.el = document.createElement('div')
-    this.el.id = 'dualsub-overlay'
+    this.el.id = 'submersive-overlay'
     Object.assign(this.el.style, {
       position: 'absolute', left: '0', right: '0', bottom: '8%',
       textAlign: 'center', color: '#fff', pointerEvents: 'none', zIndex: '60',

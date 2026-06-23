@@ -23,9 +23,9 @@ import type { Cue } from '../types'
       overlay.setCues(res.cues)
       overlay.setBilingual(true)
     } else {
-      console.warn('[dualsub] translate failed', res?.error)
+      console.warn('[submersive] translate failed', res?.error)
     }
   })
 
-  console.log('[dualsub] content ready')
+  console.log('[submersive] content ready')
 })()

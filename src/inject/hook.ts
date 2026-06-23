@@ -7,7 +7,7 @@ window.fetch = async function (...args: Parameters<typeof fetch>) {
     if (url && url.includes('timedtext')) {
       const clone = res.clone()
       clone.text().then((raw) => {
-        window.postMessage({ source: 'dualsub-hook', kind: 'timedtext', url, raw }, '*')
+        window.postMessage({ source: 'submersive-hook', kind: 'timedtext', url, raw }, '*')
       }).catch(() => { /* 忽略讀取失敗，不影響原請求 */ })
     }
   } catch {
@@ -15,4 +15,4 @@ window.fetch = async function (...args: Parameters<typeof fetch>) {
   }
   return res
 }
-console.log('[dualsub] timedtext hook installed')
+console.log('[submersive] timedtext hook installed')

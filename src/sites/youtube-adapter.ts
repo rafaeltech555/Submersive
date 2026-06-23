@@ -9,9 +9,9 @@ export class YouTubeAdapter implements SiteAdapter {
     // hook 由 manifest 以 world:'MAIN' content script 自動注入，這裡只接收其廣播
     window.addEventListener('message', (ev) => {
       const d = ev.data
-      if (ev.source !== window || !d || d.source !== 'dualsub-hook' || d.kind !== 'timedtext') return
+      if (ev.source !== window || !d || d.source !== 'submersive-hook' || d.kind !== 'timedtext') return
       const ctx = this.detectVideo()
-      if (!ctx) { console.warn('[dualsub] 收到字幕但偵測不到 videoId，略過'); return }
+      if (!ctx) { console.warn('[submersive] 收到字幕但偵測不到 videoId，略過'); return }
       const cues = parseJson3(d.raw)
       if (cues.length) this.listeners.forEach((cb) => cb(cues, ctx))
     })

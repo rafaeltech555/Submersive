@@ -2,7 +2,7 @@ import { defineManifest } from '@crxjs/vite-plugin'
 
 export default defineManifest({
   manifest_version: 3,
-  name: 'dualsub',
+  name: 'Submersive',
   version: '0.0.1',
   description: 'YouTube 沉浸式雙語字幕',
   permissions: ['storage'],
