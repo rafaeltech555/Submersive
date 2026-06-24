@@ -17,10 +17,18 @@ const NO_CUES_TIMEOUT_MS = 5000
 
   let gotCues = false
   let timer: number | undefined
+  let poll: number | undefined
+  let pollTimeout: number | undefined
+  let watchedVideo: HTMLVideoElement | null = null
   let currentVideoId: string | null = null
 
   const clearTimer = () => {
     if (timer !== undefined) { clearTimeout(timer); timer = undefined }
+  }
+
+  const clearPoll = () => {
+    if (poll !== undefined) { clearInterval(poll); poll = undefined }
+    if (pollTimeout !== undefined) { clearTimeout(pollTimeout); pollTimeout = undefined }
   }
 
   const armNoCuesTimer = () => {
@@ -32,21 +40,27 @@ const NO_CUES_TIMEOUT_MS = 5000
   }
 
   // video 元素在 document_start 時可能尚未存在；附上 playing 監聽，已在播放則直接 arm。
+  // 顯式管理監聽：YouTube 通常重用同一 <video>，但若被替換則移除舊監聽，避免累積。
   const attachPlayingListener = (): boolean => {
     const v = site.getVideoElement()
     if (!v) return false
-    v.addEventListener('playing', armNoCuesTimer) // 同一函式 ref，瀏覽器自動去重
+    if (watchedVideo !== v) {
+      if (watchedVideo) watchedVideo.removeEventListener('playing', armNoCuesTimer)
+      v.addEventListener('playing', armNoCuesTimer)
+      watchedVideo = v
+    }
     if (!v.paused) armNoCuesTimer()
     return true
   }
 
-  // 反覆嘗試直到 video 出現（最多 ~30s）。
+  // 反覆嘗試直到 video 出現（最多 ~30s）；只維持單一 poll。
   const startWatching = () => {
+    clearPoll()
     if (attachPlayingListener()) return
-    const poll = window.setInterval(() => {
-      if (attachPlayingListener()) clearInterval(poll)
+    poll = window.setInterval(() => {
+      if (attachPlayingListener()) clearPoll()
     }, 500)
-    window.setTimeout(() => clearInterval(poll), 30000)
+    pollTimeout = window.setTimeout(() => clearPoll(), 30000)
   }
 
   // 初始 + SPA 換片：videoId 變才重置。
@@ -56,6 +70,7 @@ const NO_CUES_TIMEOUT_MS = 5000
     currentVideoId = id
     gotCues = false
     clearTimer()
+    clearPoll()
     notice.hide()
     if (id) startWatching()
   }
@@ -70,10 +85,13 @@ const NO_CUES_TIMEOUT_MS = 5000
 
     overlay.setCues(cues)
     overlay.mount()
+    const expectedId = ctx.videoId
     const res = (await chrome.runtime.sendMessage({
       type: 'TRANSLATE', videoId: ctx.videoId, srcLang: ctx.srcLang,
       targetLang: settings.targetLang, engine: settings.engine, cues,
     })) as { type: string; cues?: Cue[]; error?: string }
+    // 翻譯回來時若已換片，丟棄結果，避免舊片字幕/錯誤蓋到新片。
+    if (currentVideoId !== expectedId) return
     if (res?.type === 'TRANSLATE_RESULT' && res.cues) {
       overlay.setCues(res.cues)
       overlay.setBilingual(true)
