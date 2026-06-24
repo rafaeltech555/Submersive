@@ -12,6 +12,9 @@ describe('friendlyTranslateError', () => {
     expect(friendlyTranslateError('Error: Authorization failed')).toBe(
       '翻譯失敗：API key 無效或額度用盡，請至設定檢查',
     )
+    expect(friendlyTranslateError('DeepL HTTP 401')).toBe(
+      '翻譯失敗：API key 無效或額度用盡，請至設定檢查',
+    )
   })
 
   it('本機連線類錯誤 → 本機 server 提示', () => {
@@ -19,6 +22,9 @@ describe('friendlyTranslateError', () => {
       '翻譯失敗：本機翻譯 server 未啟動或無法連線',
     )
     expect(friendlyTranslateError('connect ECONNREFUSED 127.0.0.1:5000')).toBe(
+      '翻譯失敗：本機翻譯 server 未啟動或無法連線',
+    )
+    expect(friendlyTranslateError('NetworkError when attempting to fetch resource')).toBe(
       '翻譯失敗：本機翻譯 server 未啟動或無法連線',
     )
   })
