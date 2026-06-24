@@ -1,0 +1,16 @@
+# Submersive repo-local gitleaks 設定 — 與本機 pre-commit hook、CI 共用同一套規則。
+# 內容對齊 sideproject 共用設定（/home/finn/sideproject/.gitleaks.toml）；
+# 放在 repo 內是為了讓 GitHub Actions（只 checkout 本 repo）也能取得設定。
+title = "Submersive gitleaks 設定"
+
+# 沿用 gitleaks 內建規則集（AWS、GitHub、Slack、私鑰、各家 API key…）
+[extend]
+useDefault = true
+
+[allowlist]
+description = "已知不含真實祕密的路徑（範本與安全工具自身）"
+paths = [
+  '''\.env\.example$''',
+  '''\.gitleaks\.toml$''',
+  '''(^|/)\.githooks/''',
+]
