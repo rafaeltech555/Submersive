@@ -48,10 +48,15 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
 
     const expectedLine = text
     const expectedVid = currentVideoId
-    const res = (await chrome.runtime.sendMessage({
-      type: 'TRANSLATE_LINE', text, srcLang: null,
-      targetLang: settings.targetLang, engine: settings.engine,
-    })) as { type: string; translated?: string; error?: string }
+    let res: { type: string; translated?: string; error?: string }
+    try {
+      res = (await chrome.runtime.sendMessage({
+        type: 'TRANSLATE_LINE', text, srcLang: null,
+        targetLang: settings.targetLang, engine: settings.engine,
+      })) as { type: string; translated?: string; error?: string }
+    } catch {
+      return // background 不可用時靜默略過該行
+    }
 
     // 換行或換片就丟棄（避免舊行譯文蓋到新行/新片）
     if (currentLine !== expectedLine || currentVideoId !== expectedVid) return
@@ -83,16 +88,13 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
     return true
   }
 
-  // 反覆嘗試直到 video + 字幕容器出現（最多 ~30s）；容器出現才掛 observer。
+  // observer 自帶輪詢、每次重查當前容器，故無條件 start（容器晚到也沒關係）。
+  // 這裡的 poll 只負責把 'playing' 監聽掛到 video（無字幕提示用），直到 video 出現（最多 ~30s）。
   const startWatching = () => {
     clearPoll()
-    const tryStart = (): boolean => {
-      attachPlayingListener()
-      if (getContainer()) { observer.start(); return true }
-      return false
-    }
-    if (tryStart()) return
-    poll = window.setInterval(() => { if (tryStart()) clearPoll() }, 500)
+    observer.start()
+    if (attachPlayingListener()) return
+    poll = window.setInterval(() => { if (attachPlayingListener()) clearPoll() }, 500)
     pollTimeout = window.setTimeout(() => clearPoll(), 30000)
   }
 

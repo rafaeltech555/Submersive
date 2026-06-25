@@ -12,10 +12,14 @@ export function extractLineText(root: Element | null): string {
   return parts.join('\n')
 }
 
+const POLL_MS = 300
+
 // 監看字幕容器，當前原文行變更時回呼（空字串代表清空）。
-// 注入譯文造成的 mutation 因 extractLineText 排除注入節點 + last 去重，不會回授。
+// 用輕量輪詢、每次重新查當前 .player-timedtext，而非綁死單一節點——
+// Netflix 會在換行/seek/開關字幕時重建容器，綁死舊節點會收不到新字幕。
+// 注入譯文不會回授：extractLineText 排除注入節點 + last 去重。
 export class SubtitleObserver {
-  private mo: MutationObserver | null = null
+  private timer: number | undefined
   private last = ''
 
   constructor(
@@ -24,25 +28,21 @@ export class SubtitleObserver {
   ) {}
 
   start(): boolean {
-    this.mo?.disconnect()
-    const container = this.getContainer()
-    if (!container) return false
-    this.mo = new MutationObserver(() => this.check(container))
-    this.mo.observe(container, { childList: true, subtree: true, characterData: true })
-    this.check(container)
+    this.stop()
+    this.timer = window.setInterval(() => this.check(), POLL_MS)
+    this.check()
     return true
   }
 
-  private check(container: Element) {
-    const text = extractLineText(container)
+  private check() {
+    const text = extractLineText(this.getContainer())
     if (text === this.last) return
     this.last = text
     this.onLine(text)
   }
 
   stop() {
-    this.mo?.disconnect()
-    this.mo = null
+    if (this.timer !== undefined) { clearInterval(this.timer); this.timer = undefined }
     this.last = ''
   }
 }
