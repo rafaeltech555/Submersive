@@ -60,6 +60,7 @@ const NO_CUES_TIMEOUT_MS = 5000
     }
   }
 
+  // 同步函式；translateAndShow 為 fire-and-forget。呼叫者（click / onChanged）不需 await，enabled flag 即時可讀。
   // 套用開關狀態到目前畫面。
   const applyEnabled = (on: boolean) => {
     enabled = on

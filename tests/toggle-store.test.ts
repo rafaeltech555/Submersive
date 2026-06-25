@@ -29,4 +29,9 @@ describe('toggle-store', () => {
     await saveEnabled(true)
     expect(await loadEnabled()).toBe(true)
   })
+
+  it('saveEnabled 寫入 immersiveEnabled key', async () => {
+    await saveEnabled(false)
+    expect(store['immersiveEnabled']).toBe(false)
+  })
 })

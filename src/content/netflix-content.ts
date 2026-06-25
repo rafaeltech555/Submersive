@@ -26,17 +26,18 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
   let lastErrorMsg = ''
   let lastErrorAt = 0
 
-  const toggle = new ToggleButton(getPlayerRoot, (on) => {
+  // 套用開關狀態：更新 flag，OFF 時清掉注入的譯文。onToggle / onChanged 共用，避免兩處邏輯不同步。
+  const applyEnabled = (on: boolean) => {
     enabled = on
-    saveEnabled(on)
     if (!on) injector.clear()
-  }, enabled)
+  }
+
+  const toggle = new ToggleButton(getPlayerRoot, (on) => { applyEnabled(on); saveEnabled(on) }, enabled)
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.immersiveEnabled) return
-    enabled = changes.immersiveEnabled.newValue ?? true
+    applyEnabled(changes.immersiveEnabled.newValue ?? true)
     toggle.setState(enabled)
-    if (!enabled) injector.clear()
   })
 
   const clearNoSubTimer = () => {
