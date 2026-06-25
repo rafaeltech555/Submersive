@@ -8,6 +8,7 @@ export default defineManifest({
   permissions: ['storage'],
   host_permissions: [
     'https://*.youtube.com/*',
+    'https://*.netflix.com/*',
     'https://api-free.deepl.com/*',
     'https://api.cognitive.microsofttranslator.com/*',
     'http://localhost:*/*',
@@ -25,6 +26,12 @@ export default defineManifest({
       matches: ['https://*.youtube.com/*'],
       js: ['src/content/content.ts'],
       run_at: 'document_start',
+      world: 'ISOLATED',
+    },
+    {
+      matches: ['https://*.netflix.com/*'],
+      js: ['src/content/netflix-content.ts'],
+      run_at: 'document_idle',
       world: 'ISOLATED',
     },
   ],
