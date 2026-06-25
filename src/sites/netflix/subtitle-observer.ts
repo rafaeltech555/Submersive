@@ -11,3 +11,37 @@ export function extractLineText(root: Element | null): string {
   })
   return parts.join('\n')
 }
+
+// 監看字幕容器，當前原文行變更時回呼（空字串代表清空）。
+// 注入譯文造成的 mutation 因 extractLineText 排除注入節點 + last 去重，不會回授。
+export class SubtitleObserver {
+  private mo: MutationObserver | null = null
+  private last = ''
+
+  constructor(
+    private getContainer: () => Element | null,
+    private onLine: (text: string) => void,
+  ) {}
+
+  start(): boolean {
+    const container = this.getContainer()
+    if (!container) return false
+    this.mo = new MutationObserver(() => this.check(container))
+    this.mo.observe(container, { childList: true, subtree: true, characterData: true })
+    this.check(container)
+    return true
+  }
+
+  private check(container: Element) {
+    const text = extractLineText(container)
+    if (text === this.last) return
+    this.last = text
+    this.onLine(text)
+  }
+
+  stop() {
+    this.mo?.disconnect()
+    this.mo = null
+    this.last = ''
+  }
+}
