@@ -1,14 +1,17 @@
 import { YouTubeAdapter } from '../sites/youtube-adapter'
 import { Overlay } from './overlay'
 import { Notice } from './notice'
+import { ToggleButton } from './toggle-button'
 import { loadSettings } from '../core/settings-store'
+import { loadEnabled, saveEnabled } from '../core/toggle-store'
 import { friendlyTranslateError } from '../core/translate-error'
-import type { Cue } from '../types'
+import type { Cue, VideoContext } from '../types'
 
 const NO_CUES_TIMEOUT_MS = 5000
 
 ;(async () => {
   const settings = await loadSettings()
+  let enabled = await loadEnabled()
   const site = new YouTubeAdapter()
   const anchor = () => document.querySelector('#movie_player') as HTMLElement | null
   const overlay = new Overlay(() => site.getPlayerTime(), anchor)
@@ -21,29 +24,66 @@ const NO_CUES_TIMEOUT_MS = 5000
   let pollTimeout: number | undefined
   let watchedVideo: HTMLVideoElement | null = null
   let currentVideoId: string | null = null
+  let lastCues: Cue[] | null = null
+  let lastCtx: VideoContext | null = null
 
   const clearTimer = () => {
     if (timer !== undefined) { clearTimeout(timer); timer = undefined }
   }
-
   const clearPoll = () => {
     if (poll !== undefined) { clearInterval(poll); poll = undefined }
     if (pollTimeout !== undefined) { clearTimeout(pollTimeout); pollTimeout = undefined }
   }
 
   const armNoCuesTimer = () => {
-    if (timer !== undefined || gotCues) return
+    if (timer !== undefined || gotCues || !enabled) return
     timer = window.setTimeout(() => {
       timer = undefined
-      if (!gotCues) notice.show('請開啟 CC 字幕以啟用雙語翻譯')
+      if (!gotCues && enabled) notice.show('請開啟 CC 字幕以啟用雙語翻譯')
     }, NO_CUES_TIMEOUT_MS)
   }
 
-  // video 元素在 document_start 時可能尚未存在；附上 playing 監聽，已在播放則直接 arm。
-  // 顯式管理監聽：YouTube 通常重用同一 <video>，但若被替換則移除舊監聽，避免累積。
+  // 翻譯整軌並顯示雙語；OFF 或已換片時放棄。
+  const translateAndShow = async (cues: Cue[], ctx: VideoContext) => {
+    const expectedId = ctx.videoId
+    const res = (await chrome.runtime.sendMessage({
+      type: 'TRANSLATE', videoId: ctx.videoId, srcLang: ctx.srcLang,
+      targetLang: settings.targetLang, engine: settings.engine, cues,
+    })) as { type: string; cues?: Cue[]; error?: string }
+    if (currentVideoId !== expectedId || !enabled) return
+    if (res?.type === 'TRANSLATE_RESULT' && res.cues) {
+      overlay.setCues(res.cues)
+      overlay.setBilingual(true)
+    } else {
+      console.warn('[submersive] translate failed', res?.error)
+      notice.show(friendlyTranslateError(res?.error), { autoHideMs: 6000 })
+    }
+  }
+
+  // 套用開關狀態到目前畫面。
+  const applyEnabled = (on: boolean) => {
+    enabled = on
+    if (on) {
+      if (lastCues && lastCtx) translateAndShow(lastCues, lastCtx)
+    } else {
+      overlay.setBilingual(false)
+    }
+  }
+
+  const toggle = new ToggleButton(anchor, (on) => { applyEnabled(on); saveEnabled(on) }, enabled)
+
+  // 其他分頁改了開關 → 同步本頁。
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.immersiveEnabled) return
+    const on = changes.immersiveEnabled.newValue ?? true
+    toggle.setState(on)
+    applyEnabled(on)
+  })
+
   const attachPlayingListener = (): boolean => {
     const v = site.getVideoElement()
     if (!v) return false
+    toggle.mount()
     if (watchedVideo !== v) {
       if (watchedVideo) watchedVideo.removeEventListener('playing', armNoCuesTimer)
       v.addEventListener('playing', armNoCuesTimer)
@@ -53,7 +93,6 @@ const NO_CUES_TIMEOUT_MS = 5000
     return true
   }
 
-  // 反覆嘗試直到 video 出現（最多 ~30s）；只維持單一 poll。
   const startWatching = () => {
     clearPoll()
     if (attachPlayingListener()) return
@@ -63,15 +102,17 @@ const NO_CUES_TIMEOUT_MS = 5000
     pollTimeout = window.setTimeout(() => clearPoll(), 30000)
   }
 
-  // 初始 + SPA 換片：videoId 變才重置。
   const onVideoMaybeChanged = () => {
     const id = site.detectVideo()?.videoId ?? null
     if (id === currentVideoId) return
     currentVideoId = id
     gotCues = false
+    lastCues = null
+    lastCtx = null
     clearTimer()
     clearPoll()
     notice.hide()
+    overlay.setBilingual(false)
     if (id) startWatching()
   }
 
@@ -82,23 +123,11 @@ const NO_CUES_TIMEOUT_MS = 5000
     gotCues = true
     clearTimer()
     notice.hide()
-
     overlay.setCues(cues)
     overlay.mount()
-    const expectedId = ctx.videoId
-    const res = (await chrome.runtime.sendMessage({
-      type: 'TRANSLATE', videoId: ctx.videoId, srcLang: ctx.srcLang,
-      targetLang: settings.targetLang, engine: settings.engine, cues,
-    })) as { type: string; cues?: Cue[]; error?: string }
-    // 翻譯回來時若已換片，丟棄結果，避免舊片字幕/錯誤蓋到新片。
-    if (currentVideoId !== expectedId) return
-    if (res?.type === 'TRANSLATE_RESULT' && res.cues) {
-      overlay.setCues(res.cues)
-      overlay.setBilingual(true)
-    } else {
-      console.warn('[submersive] translate failed', res?.error)
-      notice.show(friendlyTranslateError(res?.error), { autoHideMs: 6000 })
-    }
+    lastCues = cues
+    lastCtx = ctx
+    if (enabled) await translateAndShow(cues, ctx)
   })
 
   console.log('[submersive] content ready')
