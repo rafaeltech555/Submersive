@@ -108,6 +108,10 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
     clearNoSubTimer()
     clearPoll()
     notice.hide()
+    if (watchedVideo) {
+      watchedVideo.removeEventListener('playing', armNoSubTimer)
+      watchedVideo = null
+    }
     if (id) startWatching()
   }
 

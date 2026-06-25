@@ -24,6 +24,7 @@ export class SubtitleObserver {
   ) {}
 
   start(): boolean {
+    this.mo?.disconnect()
     const container = this.getContainer()
     if (!container) return false
     this.mo = new MutationObserver(() => this.check(container))
