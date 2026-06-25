@@ -1,5 +1,7 @@
 import { loadSettings } from '../core/settings-store'
+import { loadEnabled, saveEnabled } from '../core/toggle-store'
 import { Notice } from './notice'
+import { ToggleButton } from './toggle-button'
 import { friendlyTranslateError } from '../core/translate-error'
 import { getVideoId, getContainer, getVideoElement, getPlayerRoot } from '../sites/netflix/player'
 import { SubtitleObserver } from '../sites/netflix/subtitle-observer'
@@ -9,6 +11,7 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
 
 ;(async () => {
   const settings = await loadSettings()
+  let enabled = await loadEnabled()
   const notice = new Notice(getPlayerRoot)
   const injector = new Injector(getContainer)
   const observer = new SubtitleObserver(getContainer, onLine)
@@ -23,6 +26,19 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
   let lastErrorMsg = ''
   let lastErrorAt = 0
 
+  const toggle = new ToggleButton(getPlayerRoot, (on) => {
+    enabled = on
+    saveEnabled(on)
+    if (!on) injector.clear()
+  }, enabled)
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.immersiveEnabled) return
+    enabled = changes.immersiveEnabled.newValue ?? true
+    toggle.setState(enabled)
+    if (!enabled) injector.clear()
+  })
+
   const clearNoSubTimer = () => {
     if (noSubTimer !== undefined) { clearTimeout(noSubTimer); noSubTimer = undefined }
   }
@@ -32,10 +48,10 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
   }
 
   const armNoSubTimer = () => {
-    if (noSubTimer !== undefined || gotLine) return
+    if (noSubTimer !== undefined || gotLine || !enabled) return
     noSubTimer = window.setTimeout(() => {
       noSubTimer = undefined
-      if (!gotLine) notice.show('請開啟字幕以啟用雙語翻譯')
+      if (!gotLine && enabled) notice.show('請開啟字幕以啟用雙語翻譯')
     }, NO_SUBTITLE_TIMEOUT_MS)
   }
 
@@ -45,6 +61,7 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
     gotLine = true
     clearNoSubTimer()
     notice.hide()
+    if (!enabled) { injector.clear(); return }
 
     const expectedLine = text
     const expectedVid = currentVideoId
@@ -58,14 +75,13 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
       return // background 不可用時靜默略過該行
     }
 
-    // 換行或換片就丟棄（避免舊行譯文蓋到新行/新片）
-    if (currentLine !== expectedLine || currentVideoId !== expectedVid) return
+    // 換行/換片/中途關掉就丟棄
+    if (currentLine !== expectedLine || currentVideoId !== expectedVid || !enabled) return
 
     if (res?.type === 'TRANSLATE_LINE_RESULT' && res.translated != null) {
       injector.setTranslation(res.translated)
     } else {
       console.warn('[submersive] netflix translate failed', res?.error)
-      // 防洪：同訊息 6s 內不重彈
       const msg = friendlyTranslateError(res?.error)
       const now = Date.now()
       if (msg !== lastErrorMsg || now - lastErrorAt > 6000) {
@@ -79,6 +95,7 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
   const attachPlayingListener = (): boolean => {
     const v = getVideoElement()
     if (!v) return false
+    toggle.mount()
     if (watchedVideo !== v) {
       if (watchedVideo) watchedVideo.removeEventListener('playing', armNoSubTimer)
       v.addEventListener('playing', armNoSubTimer)
@@ -88,8 +105,6 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
     return true
   }
 
-  // observer 自帶輪詢、每次重查當前容器，故無條件 start（容器晚到也沒關係）。
-  // 這裡的 poll 只負責把 'playing' 監聽掛到 video（無字幕提示用），直到 video 出現（最多 ~30s）。
   const startWatching = () => {
     clearPoll()
     observer.start()
@@ -98,7 +113,6 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
     pollTimeout = window.setTimeout(() => clearPoll(), 30000)
   }
 
-  // 初始 + SPA 換片：Netflix 無 yt-navigate-finish，靠 videoId 輪詢比對。
   const onVideoMaybeChanged = () => {
     const id = getVideoId()
     if (id === currentVideoId) return
