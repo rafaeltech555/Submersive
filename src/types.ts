@@ -37,3 +37,6 @@ export type Message =
   | { type: 'TRANSLATE'; videoId: string; srcLang: string | null; targetLang: string; engine: EngineId; cues: Cue[] }
   | { type: 'TRANSLATE_RESULT'; videoId: string; cues: Cue[] }
   | { type: 'TRANSLATE_ERROR'; videoId: string; error: string }
+  | { type: 'TRANSLATE_LINE'; text: string; srcLang: string | null; targetLang: string; engine: EngineId }
+  | { type: 'TRANSLATE_LINE_RESULT'; text: string; translated: string }
+  | { type: 'TRANSLATE_LINE_ERROR'; text: string; error: string }
