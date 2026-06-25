@@ -1,4 +1,5 @@
 import type { Message, Cue, EngineId } from '../types'
+import { translateLineCached } from './translate-line'
 import { chunkCues } from '../core/chunker'
 import { DeepLAdapter } from '../translation/deepl-adapter'
 import { LocalAdapter } from '../translation/local-adapter'
@@ -60,12 +61,33 @@ async function translateWithCache(
   return result
 }
 
+async function translateLine(
+  text: string, srcLang: string | null, targetLang: string, engine: EngineId,
+): Promise<string> {
+  return translateLineCached(text, srcLang, targetLang, engine, async (t) => {
+    const adapter = await pickAdapter(engine)
+    const [translated] = await runWithRetry(
+      () => adapter.translateBatch([t], srcLang, targetLang),
+      { retries: 3, baseMs: 500 },
+    )
+    if (translated == null) throw new Error('translation empty')
+    return translated
+  })
+}
+
 chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
-  if (msg.type !== 'TRANSLATE') return
-  translateWithCache(msg.videoId, msg.cues, msg.srcLang, msg.targetLang, msg.engine)
-    .then((cues) => sendResponse({ type: 'TRANSLATE_RESULT', videoId: msg.videoId, cues }))
-    .catch((e) => sendResponse({ type: 'TRANSLATE_ERROR', videoId: msg.videoId, error: String(e) }))
-  return true
+  if (msg.type === 'TRANSLATE') {
+    translateWithCache(msg.videoId, msg.cues, msg.srcLang, msg.targetLang, msg.engine)
+      .then((cues) => sendResponse({ type: 'TRANSLATE_RESULT', videoId: msg.videoId, cues }))
+      .catch((e) => sendResponse({ type: 'TRANSLATE_ERROR', videoId: msg.videoId, error: String(e) }))
+    return true
+  }
+  if (msg.type === 'TRANSLATE_LINE') {
+    translateLine(msg.text, msg.srcLang, msg.targetLang, msg.engine)
+      .then((translated) => sendResponse({ type: 'TRANSLATE_LINE_RESULT', text: msg.text, translated }))
+      .catch((e) => sendResponse({ type: 'TRANSLATE_LINE_ERROR', text: msg.text, error: String(e) }))
+    return true
+  }
 })
 
 console.log('[submersive] background ready')
