@@ -3,7 +3,8 @@ import type { TranslationAdapter, TranslationCapabilities } from './adapter'
 const TARGET_MAP: Record<string, string> = { 'zh-TW': 'zt', 'zh-CN': 'zh', ja: 'ja', ko: 'ko', en: 'en' }
 
 export class LocalAdapter implements TranslationAdapter {
-  constructor(private readonly baseUrl: string, private readonly fetchFn: typeof fetch = fetch) {}
+  // 預設 fetch 必須以 bare call 包裝，否則 this.fetchFn(...) 在 SW/瀏覽器會丟 Illegal invocation（fetch 失去 global binding）。
+  constructor(private readonly baseUrl: string, private readonly fetchFn: typeof fetch = (...a) => fetch(...a)) {}
 
   capabilities(): TranslationCapabilities { return { maxCharsPerReq: 2000 } }
 
