@@ -19,7 +19,9 @@ export class Overlay {
   private showOriginal = true
   private originalFirst = true
   private fontScale = 1
+  private originalOnly = false
   setBilingual(v: boolean) { this.bilingual = v }
+  setOriginalOnly(v: boolean) { this.originalOnly = v }
 
   setCues(cues: Cue[]) { this.cues = cues }
 
@@ -53,7 +55,9 @@ export class Overlay {
       if (this.showOriginal) lines.push(...(this.originalFirst ? [orig, trans] : [trans, orig]))
       else lines.push(trans)
     } else {
-      lines.push(orig) // 還沒翻譯好，先顯示原文
+      // originalOnly（開關=原文）時原文用主要尺寸，讓字級倍率明顯；雙語未翻好的暫顯維持次要尺寸。
+      if (this.originalOnly) Object.assign(orig.style, { fontSize: `${120 * this.fontScale}%`, opacity: '1' })
+      lines.push(orig)
     }
     this.el.replaceChildren(...lines)
   }
