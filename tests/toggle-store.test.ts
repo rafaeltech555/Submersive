@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { loadEnabled, saveEnabled } from '../src/core/toggle-store'
+import { loadMode, saveMode } from '../src/core/toggle-store'
 
 let store: Record<string, unknown>
 beforeEach(() => {
@@ -19,19 +19,24 @@ beforeEach(() => {
 })
 
 describe('toggle-store', () => {
-  it('未設定過預設為 ON(true)', async () => {
-    expect(await loadEnabled()).toBe(true)
+  it('未設定過預設為 bilingual', async () => {
+    expect(await loadMode()).toBe('bilingual')
   })
 
-  it('saveEnabled 寫入後 loadEnabled 讀回', async () => {
-    await saveEnabled(false)
-    expect(await loadEnabled()).toBe(false)
-    await saveEnabled(true)
-    expect(await loadEnabled()).toBe(true)
+  it('saveMode 寫入後 loadMode 讀回', async () => {
+    await saveMode('original')
+    expect(await loadMode()).toBe('original')
+    await saveMode('off')
+    expect(await loadMode()).toBe('off')
   })
 
-  it('saveEnabled 寫入 immersiveEnabled key', async () => {
-    await saveEnabled(false)
-    expect(store['immersiveEnabled']).toBe(false)
+  it('非法值回退 bilingual', async () => {
+    store['immersiveMode'] = 'garbage'
+    expect(await loadMode()).toBe('bilingual')
+  })
+
+  it('saveMode 寫入 immersiveMode key', async () => {
+    await saveMode('off')
+    expect(store['immersiveMode']).toBe('off')
   })
 })

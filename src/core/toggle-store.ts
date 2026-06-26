@@ -1,9 +1,13 @@
-// 沉浸翻譯開關狀態，存 chrome.storage.local，預設 ON。
-export async function loadEnabled(): Promise<boolean> {
-  const { immersiveEnabled } = await chrome.storage.local.get(['immersiveEnabled'])
-  return immersiveEnabled ?? true
+export type ImmersiveMode = 'bilingual' | 'original' | 'off'
+
+const MODES: ImmersiveMode[] = ['bilingual', 'original', 'off']
+
+// 沉浸翻譯模式，存 chrome.storage.local，預設 bilingual。
+export async function loadMode(): Promise<ImmersiveMode> {
+  const { immersiveMode } = await chrome.storage.local.get(['immersiveMode'])
+  return MODES.includes(immersiveMode as ImmersiveMode) ? (immersiveMode as ImmersiveMode) : 'bilingual'
 }
 
-export async function saveEnabled(on: boolean): Promise<void> {
-  await chrome.storage.local.set({ immersiveEnabled: on })
+export async function saveMode(mode: ImmersiveMode): Promise<void> {
+  await chrome.storage.local.set({ immersiveMode: mode })
 }

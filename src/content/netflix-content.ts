@@ -1,5 +1,5 @@
 import { loadSettings } from '../core/settings-store'
-import { loadEnabled, saveEnabled } from '../core/toggle-store'
+import { loadMode, saveMode, type ImmersiveMode } from '../core/toggle-store'
 import { Notice } from './notice'
 import { ToggleButton } from './toggle-button'
 import { friendlyTranslateError } from '../core/translate-error'
@@ -11,7 +11,7 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
 
 ;(async () => {
   const settings = await loadSettings()
-  let enabled = await loadEnabled()
+  let mode = await loadMode()
   const notice = new Notice(getPlayerRoot)
   const injector = new Injector(getContainer)
   const observer = new SubtitleObserver(getContainer, onLine)
@@ -26,18 +26,19 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
   let lastErrorMsg = ''
   let lastErrorAt = 0
 
-  // 套用開關狀態：更新 flag，OFF 時清掉注入的譯文。onToggle / onChanged 共用，避免兩處邏輯不同步。
-  const applyEnabled = (on: boolean) => {
-    enabled = on
-    if (!on) injector.clear()
+  // 套用 mode：非 bilingual（原文/關閉）就清掉注入的譯文。onCycle / onChanged 共用。
+  const applyMode = (m: ImmersiveMode) => {
+    mode = m
+    if (m !== 'bilingual') injector.clear()
   }
 
-  const toggle = new ToggleButton(getPlayerRoot, (on) => { applyEnabled(on); saveEnabled(on) }, enabled)
+  const toggle = new ToggleButton(getPlayerRoot, (m) => { applyMode(m); saveMode(m) }, mode)
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !changes.immersiveEnabled) return
-    applyEnabled(changes.immersiveEnabled.newValue ?? true)
-    toggle.setState(enabled)
+    if (area !== 'local' || !changes.immersiveMode) return
+    const m = (changes.immersiveMode.newValue ?? 'bilingual') as ImmersiveMode
+    applyMode(m)
+    toggle.setMode(m)
   })
 
   const clearNoSubTimer = () => {
@@ -49,10 +50,10 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
   }
 
   const armNoSubTimer = () => {
-    if (noSubTimer !== undefined || gotLine || !enabled) return
+    if (noSubTimer !== undefined || gotLine || mode !== 'bilingual') return
     noSubTimer = window.setTimeout(() => {
       noSubTimer = undefined
-      if (!gotLine && enabled) notice.show('請開啟字幕以啟用雙語翻譯')
+      if (!gotLine && mode === 'bilingual') notice.show('請開啟字幕以啟用雙語翻譯')
     }, NO_SUBTITLE_TIMEOUT_MS)
   }
 
@@ -62,7 +63,7 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
     gotLine = true
     clearNoSubTimer()
     notice.hide()
-    if (!enabled) { injector.clear(); return }
+    if (mode !== 'bilingual') { injector.clear(); return }
 
     const expectedLine = text
     const expectedVid = currentVideoId
@@ -76,8 +77,8 @@ const NO_SUBTITLE_TIMEOUT_MS = 5000
       return // background 不可用時靜默略過該行
     }
 
-    // 換行/換片/中途關掉就丟棄
-    if (currentLine !== expectedLine || currentVideoId !== expectedVid || !enabled) return
+    // 換行/換片/中途切離 bilingual 就丟棄
+    if (currentLine !== expectedLine || currentVideoId !== expectedVid || mode !== 'bilingual') return
 
     if (res?.type === 'TRANSLATE_LINE_RESULT' && res.translated != null) {
       injector.setTranslation(res.translated)

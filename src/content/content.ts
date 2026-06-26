@@ -3,7 +3,7 @@ import { Overlay } from './overlay'
 import { Notice } from './notice'
 import { ToggleButton } from './toggle-button'
 import { loadSettings } from '../core/settings-store'
-import { loadEnabled, saveEnabled } from '../core/toggle-store'
+import { loadMode, saveMode, type ImmersiveMode } from '../core/toggle-store'
 import { friendlyTranslateError } from '../core/translate-error'
 import type { Cue, VideoContext } from '../types'
 
@@ -11,7 +11,7 @@ const NO_CUES_TIMEOUT_MS = 5000
 
 ;(async () => {
   const settings = await loadSettings()
-  let enabled = await loadEnabled()
+  let mode = await loadMode()
   const site = new YouTubeAdapter()
   const anchor = () => document.querySelector('#movie_player') as HTMLElement | null
   const overlay = new Overlay(() => site.getPlayerTime(), anchor)
@@ -36,21 +36,21 @@ const NO_CUES_TIMEOUT_MS = 5000
   }
 
   const armNoCuesTimer = () => {
-    if (timer !== undefined || gotCues || !enabled) return
+    if (timer !== undefined || gotCues || mode === 'off') return
     timer = window.setTimeout(() => {
       timer = undefined
-      if (!gotCues && enabled) notice.show('請開啟 CC 字幕以啟用雙語翻譯')
+      if (!gotCues && mode !== 'off') notice.show('請開啟 CC 字幕以啟用雙語翻譯')
     }, NO_CUES_TIMEOUT_MS)
   }
 
-  // 翻譯整軌並顯示雙語；OFF 或已換片時放棄。
+  // 翻譯整軌並顯示雙語；非 bilingual 或已換片時放棄。
   const translateAndShow = async (cues: Cue[], ctx: VideoContext) => {
     const expectedId = ctx.videoId
     const res = (await chrome.runtime.sendMessage({
       type: 'TRANSLATE', videoId: ctx.videoId, srcLang: ctx.srcLang,
       targetLang: settings.targetLang, engine: settings.engine, cues,
     })) as { type: string; cues?: Cue[]; error?: string }
-    if (currentVideoId !== expectedId || !enabled) return
+    if (currentVideoId !== expectedId || mode !== 'bilingual') return
     if (res?.type === 'TRANSLATE_RESULT' && res.cues) {
       overlay.setCues(res.cues)
       overlay.setBilingual(true)
@@ -60,25 +60,25 @@ const NO_CUES_TIMEOUT_MS = 5000
     }
   }
 
-  // 同步函式；translateAndShow 為 fire-and-forget。呼叫者（click / onChanged）不需 await，enabled flag 即時可讀。
-  // 套用開關狀態到目前畫面。
-  const applyEnabled = (on: boolean) => {
-    enabled = on
-    if (on) {
-      if (lastCues && lastCtx) translateAndShow(lastCues, lastCtx)
-    } else {
-      overlay.setBilingual(false)
-    }
+  // 套用 mode 到目前畫面。translateAndShow 為 fire-and-forget；呼叫者不需 await，mode 即時可讀。
+  const applyMode = (m: ImmersiveMode) => {
+    mode = m
+    if (m === 'off') { overlay.unmount(); return }
+    overlay.setOriginalOnly(m === 'original')
+    overlay.setBilingual(false)
+    if (lastCues) overlay.setCues(lastCues)
+    overlay.mount()
+    if (m === 'bilingual' && lastCues && lastCtx) translateAndShow(lastCues, lastCtx)
   }
 
-  const toggle = new ToggleButton(anchor, (on) => { applyEnabled(on); saveEnabled(on) }, enabled)
+  const toggle = new ToggleButton(anchor, (m) => { applyMode(m); saveMode(m) }, mode)
 
-  // 其他分頁改了開關 → 同步本頁。
+  // 其他分頁改了 mode → 同步本頁。
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !changes.immersiveEnabled) return
-    const on = changes.immersiveEnabled.newValue ?? true
-    toggle.setState(on)
-    applyEnabled(on)
+    if (area !== 'local' || !changes.immersiveMode) return
+    const m = (changes.immersiveMode.newValue ?? 'bilingual') as ImmersiveMode
+    toggle.setMode(m)
+    applyMode(m)
   })
 
   const attachPlayingListener = (): boolean => {
@@ -124,11 +124,14 @@ const NO_CUES_TIMEOUT_MS = 5000
     gotCues = true
     clearTimer()
     notice.hide()
-    overlay.setCues(cues)
-    overlay.mount()
     lastCues = cues
     lastCtx = ctx
-    if (enabled) await translateAndShow(cues, ctx)
+    if (mode === 'off') return
+    overlay.setCues(cues)
+    overlay.setOriginalOnly(mode === 'original')
+    overlay.setBilingual(false)
+    overlay.mount()
+    if (mode === 'bilingual') await translateAndShow(cues, ctx)
   })
 
   console.log('[submersive] content ready')
