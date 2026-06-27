@@ -30,6 +30,12 @@ export default defineManifest({
     },
     {
       matches: ['https://*.netflix.com/*'],
+      js: ['src/inject/netflix-hook.ts'],
+      run_at: 'document_start',
+      world: 'MAIN',
+    },
+    {
+      matches: ['https://*.netflix.com/*'],
       js: ['src/content/netflix-content.ts'],
       run_at: 'document_idle',
       world: 'ISOLATED',
