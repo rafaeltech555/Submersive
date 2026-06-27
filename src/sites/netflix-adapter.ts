@@ -16,6 +16,8 @@ export class NetflixAdapter implements SiteAdapter {
       const cues = parseImsc(d.raw)
       if (cues.length) this.listeners.forEach((cb) => cb(cues, ctx))
     })
+    // 若 hook 在 adapter 啟動前已廣播過 TTML（prefetch race），請求重播最後一筆
+    window.postMessage({ source: 'submersive-hook-request', kind: 'netflix-replay' }, '*')
   }
 
   detectVideo(): VideoContext | null {

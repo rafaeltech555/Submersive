@@ -1,12 +1,25 @@
 // 注入到 Netflix 頁面 MAIN world，攔截字幕請求（Netflix 字幕從 *.nflxvideo.net 取）。
 // 同時 patch fetch + XHR（Netflix 字幕走 XHR 機率較高）。
 
+// 緩存最後一次廣播的 TTML，供 adapter 晚啟動時重播
+let lastUrl = ''
+let lastRaw = ''
+
 function maybeBroadcast(url: string, raw: string) {
   if (!raw) return
   const trimmed = raw.trimStart()
   if (!trimmed.startsWith('<?xml') && !trimmed.startsWith('<tt')) return // 非字幕資源略過
+  lastUrl = url
+  lastRaw = raw
   window.postMessage({ source: 'submersive-hook', kind: 'netflix-imsc', url, raw }, '*')
 }
+
+// 接收 adapter 的重播請求，將最後一筆 TTML 再廣播一次
+window.addEventListener('message', (ev) => {
+  const d = ev.data
+  if (!d || d.source !== 'submersive-hook-request' || d.kind !== 'netflix-replay') return
+  if (lastRaw) maybeBroadcast(lastUrl, lastRaw)
+})
 
 const origFetch = window.fetch
 window.fetch = async function (...args: Parameters<typeof fetch>) {

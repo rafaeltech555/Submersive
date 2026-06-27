@@ -62,4 +62,14 @@ describe('NetflixAdapter', () => {
     const adapter = new NetflixAdapter()
     expect(adapter.detectVideo()).toEqual({ videoId: '12345', srcLang: null })
   })
+
+  it('requests replay from hook on construction', () => {
+    const spy = vi.spyOn(window, 'postMessage')
+    new NetflixAdapter()
+    expect(spy).toHaveBeenCalledWith(
+      { source: 'submersive-hook-request', kind: 'netflix-replay' },
+      '*',
+    )
+    spy.mockRestore()
+  })
 })
