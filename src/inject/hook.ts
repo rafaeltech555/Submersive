@@ -40,3 +40,5 @@ xhrProto.send = function (this: XMLHttpRequest, ...args: unknown[]) {
 }
 
 console.log('[submersive] timedtext hook installed (fetch + XHR)')
+
+export {}
