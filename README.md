@@ -138,7 +138,7 @@ npm run build
 |------|------|
 | `src/inject/netflix-hook.ts` | MAIN-world hook：攔 Netflix 字幕 XHR/fetch |
 | `src/sites/netflix/imsc-parser.ts` | TTML/imsc 解析（支援 tick 時間） |
-| `src/sites/netflix/netflix-adapter.ts` | NetflixAdapter：隱藏原生 CC、餵 cue 給 overlay |
+| `src/sites/netflix-adapter.ts` | NetflixAdapter：隱藏原生 CC、餵 cue 給 overlay |
 | `src/content/translation-scheduler.ts` | 視窗化排程：playhead 前方優先、序列化小批次 |
 | `src/background/translate-batch.ts` | 無狀態批次翻譯 handler（逐句 IDB 快取）|
 
