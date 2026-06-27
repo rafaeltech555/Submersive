@@ -5,15 +5,18 @@ import { chunkCues } from '../core/chunker'
 import { DeepLAdapter } from '../translation/deepl-adapter'
 import { LocalAdapter } from '../translation/local-adapter'
 import { AzureAdapter } from '../translation/azure-adapter'
+import { OllamaAdapter } from '../translation/ollama-adapter'
 import type { TranslationAdapter } from '../translation/adapter'
 import { runWithRetry } from '../translation/queue'
 import { cacheKey } from '../core/cache-key'
 import { getCached, putCached } from '../core/cache'
 
 async function pickAdapter(engine: EngineId): Promise<TranslationAdapter> {
-  const { deeplKey, localUrl, azureKey, azureRegion } = await chrome.storage.local.get(['deeplKey', 'localUrl', 'azureKey', 'azureRegion'])
+  const { deeplKey, localUrl, azureKey, azureRegion, ollamaUrl, ollamaModel } =
+    await chrome.storage.local.get(['deeplKey', 'localUrl', 'azureKey', 'azureRegion', 'ollamaUrl', 'ollamaModel'])
   if (engine === 'local') return new LocalAdapter(localUrl ?? 'http://localhost:5000')
   if (engine === 'azure') return new AzureAdapter(azureKey ?? '', azureRegion ?? '')
+  if (engine === 'ollama') return new OllamaAdapter(ollamaUrl ?? 'http://localhost:11434', ollamaModel ?? 'qwen3:4b-instruct')
   return new DeepLAdapter(deeplKey ?? '')
 }
 
