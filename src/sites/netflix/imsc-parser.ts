@@ -1,10 +1,33 @@
 import type { Cue } from '../../types'
 
-// 解析 HH:MM:SS.mmm 為秒。失敗回 NaN。
-function parseTime(s: string): number {
-  const m = s.match(/^(\d{2}):(\d{2}):(\d{2})\.(\d{3})$/)
-  if (!m) return NaN
-  return +m[1] * 3600 + +m[2] * 60 + +m[3] + +m[4] / 1000
+// 解析 TTML 時間表達式為秒。支援：
+//   clock-time: HH:MM:SS 或 HH:MM:SS.fraction（既有格式）
+//   offset-time: <number><metric>，metric ∈ h|ms|m|s|f|t
+//     t（ticks）→ number / tickRate；ms → /1000；s → 直接；m → *60；h → *3600
+//     f（frames）→ NaN（不處理 frameRate，Netflix 用 ticks）
+// 其他格式回 NaN。
+function parseTime(s: string, tickRate: number): number {
+  // clock-time: HH:MM:SS 或 HH:MM:SS.fraction
+  const clock = s.match(/^(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/)
+  if (clock) {
+    const frac = clock[4] ? +clock[4] / Math.pow(10, clock[4].length) : 0
+    return +clock[1] * 3600 + +clock[2] * 60 + +clock[3] + frac
+  }
+  // offset-time: <number><metric>（ms 放在 m/s 前面，避免錯誤匹配）
+  const offset = s.match(/^(\d+(?:\.\d+)?)(h|ms|m|s|f|t)$/)
+  if (offset) {
+    const num = +offset[1]
+    const metric = offset[2]
+    switch (metric) {
+      case 't':  return num / tickRate
+      case 'ms': return num / 1000
+      case 's':  return num
+      case 'm':  return num * 60
+      case 'h':  return num * 3600
+      case 'f':  return NaN  // 不處理 frame rate
+    }
+  }
+  return NaN
 }
 
 // 從 <p> 抽文字：text node 直收、<br/> 轉 \n、其他子元素遞迴文字內容。
@@ -31,13 +54,27 @@ export function parseImsc(xml: string): Cue[] {
     console.warn('[submersive] imsc parsererror')
     return []
   }
+
+  // 讀 ttp:tickRate：掃 documentElement.attributes 找 localName === 'tickRate'
+  // 前綴可能不固定（ttp: 或 ttp2: 等），用 localName 比對最穩。
+  // TTML spec 預設值為 1。
+  let tickRate = 1
+  const attrs = doc.documentElement.attributes
+  for (let i = 0; i < attrs.length; i++) {
+    if (attrs[i].localName === 'tickRate') {
+      const parsed = Number(attrs[i].value)
+      if (Number.isFinite(parsed) && parsed > 0) tickRate = parsed
+      break
+    }
+  }
+
   const cues: Cue[] = []
   doc.querySelectorAll('p').forEach((p) => {
     const begin = p.getAttribute('begin')
     const end = p.getAttribute('end')
     if (!begin || !end) return
-    const start = parseTime(begin)
-    const eEnd = parseTime(end)
+    const start = parseTime(begin, tickRate)
+    const eEnd = parseTime(end, tickRate)
     if (Number.isNaN(start) || Number.isNaN(eEnd) || eEnd <= start) {
       console.warn('[submersive] imsc cue invalid time, skipped', begin, end)
       return
