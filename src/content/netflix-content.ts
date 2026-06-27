@@ -1,4 +1,5 @@
 import { NetflixAdapter } from '../sites/netflix-adapter'
+import { TranslationScheduler } from './translation-scheduler'
 import { Overlay } from './overlay'
 import { Notice } from './notice'
 import { ToggleButton } from './toggle-button'
@@ -29,6 +30,22 @@ const NO_CUES_TIMEOUT_MS = 5000
   let lastCues: Cue[] | null = null
   let lastCtx: VideoContext | null = null
 
+  const scheduler = new TranslationScheduler({
+    getTime: () => site.getPlayerTime(),
+    translate: async (texts) => {
+      const res = (await chrome.runtime.sendMessage({
+        type: 'TRANSLATE_BATCH', texts,
+        srcLang: lastCtx?.srcLang ?? null,
+        targetLang: settings.targetLang, engine: settings.engine,
+      })) as { type: string; translated?: string[]; error?: string }
+      if (res?.type === 'TRANSLATE_BATCH_RESULT' && res.translated) return res.translated
+      throw new Error(res?.error ?? 'TRANSLATE_BATCH no response')
+    },
+    notify: (msg) => { if (msg == null) notice.hide(); else notice.show(friendlyTranslateError(msg)) },
+    setTimer: (fn, ms) => window.setTimeout(fn, ms),
+    clearTimer: (id) => clearTimeout(id),
+  })
+
   const clearTimer = () => {
     if (timer !== undefined) { clearTimeout(timer); timer = undefined }
   }
@@ -45,33 +62,17 @@ const NO_CUES_TIMEOUT_MS = 5000
     }, NO_CUES_TIMEOUT_MS)
   }
 
-  // 翻譯整軌並顯示雙語；非 bilingual 或已換片時放棄。
-  const translateAndShow = async (cues: Cue[], ctx: VideoContext) => {
-    const expectedId = ctx.videoId
-    const res = (await chrome.runtime.sendMessage({
-      type: 'TRANSLATE', videoId: ctx.videoId, srcLang: ctx.srcLang,
-      targetLang: settings.targetLang, engine: settings.engine, cues,
-    })) as { type: string; cues?: Cue[]; error?: string }
-    if (currentVideoId !== expectedId || mode !== 'bilingual') return
-    if (res?.type === 'TRANSLATE_RESULT' && res.cues) {
-      overlay.setCues(res.cues)
-      overlay.setBilingual(true)
-    } else {
-      console.warn('[submersive] netflix translate failed', res?.error)
-      notice.show(friendlyTranslateError(res?.error), { autoHideMs: 6000 })
-    }
-  }
-
-  // 套用 mode 到目前畫面 + 控制原生 CC 顯示。translateAndShow 為 fire-and-forget。
+  // 套用 mode 到目前畫面 + 控制原生 CC 顯示 + 啟停 scheduler。
   const applyMode = (m: ImmersiveMode) => {
     mode = m
-    if (m === 'off') { overlay.unmount(); showNativeCc(); return }
+    if (m === 'off') { scheduler.stop(); overlay.unmount(); showNativeCc(); return }
     hideNativeCc()
     overlay.setOriginalOnly(m === 'original')
-    overlay.setBilingual(false)
+    overlay.setBilingual(m === 'bilingual')
     if (lastCues) overlay.setCues(lastCues)
     overlay.mount()
-    if (m === 'bilingual' && lastCues && lastCtx) translateAndShow(lastCues, lastCtx)
+    if (m === 'bilingual') scheduler.start()
+    else scheduler.stop()
   }
 
   // 啟動時就依目前 mode 決定原生 CC 狀態。
@@ -119,6 +120,7 @@ const NO_CUES_TIMEOUT_MS = 5000
     clearTimer()
     clearPoll()
     notice.hide()
+    scheduler.stop()
     overlay.setBilingual(false)
     if (id) startWatching()
   }
@@ -126,7 +128,7 @@ const NO_CUES_TIMEOUT_MS = 5000
   onVideoMaybeChanged()
   window.setInterval(onVideoMaybeChanged, 1000)
 
-  site.onSubtitleTrack(async (cues, ctx) => {
+  site.onSubtitleTrack((cues, ctx) => {
     gotCues = true
     clearTimer()
     notice.hide()
@@ -135,9 +137,10 @@ const NO_CUES_TIMEOUT_MS = 5000
     if (mode === 'off') return
     overlay.setCues(cues)
     overlay.setOriginalOnly(mode === 'original')
-    overlay.setBilingual(false)
+    overlay.setBilingual(mode === 'bilingual')
+    scheduler.setCues(cues)
     overlay.mount()
-    if (mode === 'bilingual') await translateAndShow(cues, ctx)
+    if (mode === 'bilingual') scheduler.start()
   })
 
   console.log('[submersive] netflix content ready')
