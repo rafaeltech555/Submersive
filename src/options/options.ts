@@ -11,24 +11,26 @@ async function init() {
   $('fontScale').value = String(s.fontScale)
   $('verticalPos').value = String(s.verticalPos)
   $('bgOpacity').value = String(s.bgOpacity)
-  const { deeplKey, localUrl, azureKey, azureRegion } = await chrome.storage.local.get(['deeplKey', 'localUrl', 'azureKey', 'azureRegion'])
+  const { deeplKey, localUrl, azureKey, azureRegion, ollamaUrl, ollamaModel } = await chrome.storage.local.get(['deeplKey', 'localUrl', 'azureKey', 'azureRegion', 'ollamaUrl', 'ollamaModel'])
   $('deeplKey').value = deeplKey ?? ''
   $('localUrl').value = localUrl ?? 'http://localhost:5000'
   $('azureKey').value = azureKey ?? ''
   $('azureRegion').value = azureRegion ?? 'eastasia'
+  $('ollamaUrl').value = ollamaUrl ?? 'http://localhost:11434'
+  $('ollamaModel').value = ollamaModel ?? 'qwen3:4b-instruct'
 }
 
 $('save').addEventListener('click', async () => {
   await saveSettings({
     targetLang: $('targetLang').value,
     showOriginal: $('showOriginal').checked,
-    engine: $('engine').value as 'deepl' | 'local' | 'azure',
+    engine: $('engine').value as 'deepl' | 'local' | 'azure' | 'ollama',
     originalFirst: $('originalFirst').checked,
     fontScale: parseFloat($('fontScale').value),
     verticalPos: parseFloat($('verticalPos').value),
     bgOpacity: parseFloat($('bgOpacity').value),
   })
-  await chrome.storage.local.set({ deeplKey: $('deeplKey').value, localUrl: $('localUrl').value, azureKey: $('azureKey').value, azureRegion: $('azureRegion').value })
+  await chrome.storage.local.set({ deeplKey: $('deeplKey').value, localUrl: $('localUrl').value, azureKey: $('azureKey').value, azureRegion: $('azureRegion').value, ollamaUrl: $('ollamaUrl').value, ollamaModel: $('ollamaModel').value })
   document.getElementById('status')!.textContent = '已儲存'
 })
 
