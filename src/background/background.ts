@@ -1,5 +1,6 @@
 import type { Message, Cue, EngineId } from '../types'
 import { translateLineCached } from './translate-line'
+import { translateBatchCached } from './translate-batch'
 import { chunkCues } from '../core/chunker'
 import { DeepLAdapter } from '../translation/deepl-adapter'
 import { LocalAdapter } from '../translation/local-adapter'
@@ -75,6 +76,24 @@ async function translateLine(
   })
 }
 
+// 批次 miss 的實際翻譯：primary adapter；非 local 失敗則 fallback 本機（對齊整軌 translateCues 行為）。
+// 批次已由 scheduler 限制 ≤2000 字，落在 adapter maxCharsPerReq 內，毋須再 chunk。
+async function translateBatchMisses(
+  misses: string[], srcLang: string | null, targetLang: string, engine: EngineId,
+): Promise<string[]> {
+  const primary = await pickAdapter(engine)
+  try {
+    return await runWithRetry(() => primary.translateBatch(misses, srcLang, targetLang), { retries: 3, baseMs: 500 })
+  } catch (e) {
+    const { localUrl } = await chrome.storage.local.get('localUrl')
+    if (engine !== 'local' && localUrl) {
+      console.warn('[submersive] 批次翻譯失敗，fallback 本機', e)
+      return await runWithRetry(() => new LocalAdapter(localUrl).translateBatch(misses, srcLang, targetLang), { retries: 3, baseMs: 500 })
+    }
+    throw e
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
   if (msg.type === 'TRANSLATE') {
     translateWithCache(msg.videoId, msg.cues, msg.srcLang, msg.targetLang, msg.engine)
@@ -86,6 +105,13 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
     translateLine(msg.text, msg.srcLang, msg.targetLang, msg.engine)
       .then((translated) => sendResponse({ type: 'TRANSLATE_LINE_RESULT', text: msg.text, translated }))
       .catch((e) => sendResponse({ type: 'TRANSLATE_LINE_ERROR', text: msg.text, error: String(e) }))
+    return true
+  }
+  if (msg.type === 'TRANSLATE_BATCH') {
+    translateBatchCached(msg.texts, msg.srcLang, msg.targetLang, msg.engine,
+      (misses) => translateBatchMisses(misses, msg.srcLang, msg.targetLang, msg.engine))
+      .then((translated) => sendResponse({ type: 'TRANSLATE_BATCH_RESULT', translated }))
+      .catch((e) => sendResponse({ type: 'TRANSLATE_BATCH_ERROR', error: String(e) }))
     return true
   }
 })
