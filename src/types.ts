@@ -40,3 +40,6 @@ export type Message =
   | { type: 'TRANSLATE_LINE'; text: string; srcLang: string | null; targetLang: string; engine: EngineId }
   | { type: 'TRANSLATE_LINE_RESULT'; text: string; translated: string }
   | { type: 'TRANSLATE_LINE_ERROR'; text: string; error: string }
+  | { type: 'TRANSLATE_BATCH'; texts: string[]; srcLang: string | null; targetLang: string; engine: EngineId }
+  | { type: 'TRANSLATE_BATCH_RESULT'; translated: string[] }
+  | { type: 'TRANSLATE_BATCH_ERROR'; error: string }
