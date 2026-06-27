@@ -10,14 +10,14 @@ interface PendingCall { texts: string[]; resolve: (r: string[]) => void; reject:
 function harness(cues: Cue[], time = 0) {
   let now = time
   let nextId = 1
-  const timers = new Map<number, () => void>()
+  const timers = new Map<number, { fn: () => void; ms: number }>()
   const calls: PendingCall[] = []
   const notices: (string | null)[] = []
   const deps: SchedulerDeps = {
     getTime: () => now,
     translate: (texts) => new Promise((resolve, reject) => calls.push({ texts, resolve, reject })),
     notify: (m) => notices.push(m),
-    setTimer: (fn, _ms) => { const id = nextId++; timers.set(id, fn); return id },
+    setTimer: (fn, ms) => { const id = nextId++; timers.set(id, { fn, ms }); return id },
     clearTimer: (id) => { timers.delete(id) },
   }
   const sched = new TranslationScheduler(deps)
@@ -25,7 +25,11 @@ function harness(cues: Cue[], time = 0) {
   return {
     sched, calls, notices,
     setTime: (t: number) => { now = t },
-    fireTimers: () => { const fns = [...timers.values()]; timers.clear(); fns.forEach((f) => f()) },
+    fireTimers: () => { const items = [...timers.values()]; timers.clear(); items.forEach((t) => t.fn()) },
+    fireByMs: (ms: number) => {
+      const hit = [...timers.entries()].filter(([, t]) => t.ms === ms)
+      hit.forEach(([id, t]) => { timers.delete(id); t.fn() })
+    },
   }
 }
 
@@ -125,5 +129,29 @@ describe('TranslationScheduler', () => {
     h.sched.stop()
     h.fireTimers()
     expect(h.calls).toHaveLength(1) // stop 後 tick 不再產生新批
+  })
+
+  it('setCues 換陣列後，舊批結果不寫入新陣列（換片丟棄）', async () => {
+    const oldCues = [cue(0, 'a'), cue(1, 'b')]
+    const h = harness(oldCues, 0)
+    h.sched.start()                         // 派出 batch（引用 oldCues）
+    const newCues = [cue(0, 'x'), cue(1, 'y')]
+    h.sched.setCues(newCues)                // 換片：換成新陣列
+    h.calls[0].resolve(['譯a', '譯b'])       // 舊批回來
+    await flush()
+    expect(newCues[0].translated).toBeUndefined() // 不可寫入新陣列
+    expect(newCues[1].translated).toBeUndefined()
+  })
+
+  it('退避期間 tick 不重排，retry 到期才重排', async () => {
+    const cues = [cue(0, 'a'), cue(1, 'b')]
+    const h = harness(cues, 0)
+    h.sched.start()
+    h.calls[0].reject(new Error('x'))
+    await flush()              // 進入 backoff，retry(1000ms) 排定
+    h.fireByMs(1500)           // 只觸發 tick → 應被 backoff 擋
+    expect(h.calls).toHaveLength(1)
+    h.fireByMs(1000)           // 觸發 retry → 解除 backoff → 重排
+    expect(h.calls).toHaveLength(2)
   })
 })

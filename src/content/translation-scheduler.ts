@@ -25,6 +25,7 @@ export class TranslationScheduler {
   private failCount = 0
   private tickId?: number
   private retryId?: number
+  private backoff = false
 
   constructor(private deps: SchedulerDeps) {}
 
@@ -46,6 +47,7 @@ export class TranslationScheduler {
     this.running = false
     if (this.tickId != null) { this.deps.clearTimer(this.tickId); this.tickId = undefined }
     if (this.retryId != null) { this.deps.clearTimer(this.retryId); this.retryId = undefined }
+    this.backoff = false
   }
 
   private onTick = (): void => {
@@ -55,13 +57,14 @@ export class TranslationScheduler {
   }
 
   private schedule(): void {
-    if (!this.running || this.inflight) return
+    if (!this.running || this.inflight || this.backoff) return
     const batch = this.pickBatch()
     if (batch.length === 0) return
     this.inflight = true
+    const ref = this.cues
     const texts = batch.map((i) => this.cues[i].text)
     this.deps.translate(texts).then(
-      (res) => this.onSuccess(batch, res),
+      (res) => this.onSuccess(ref, batch, res),
       (err) => this.onFailure(err),
     )
   }
@@ -91,12 +94,14 @@ export class TranslationScheduler {
     return batch
   }
 
-  private onSuccess(batch: number[], res: string[]): void {
+  private onSuccess(ref: Cue[], batch: number[], res: string[]): void {
+    if (this.cues !== ref) { this.inflight = false; return } // 換片：舊批結果丟棄
     batch.forEach((i, k) => {
       if (res[k] != null) { this.cues[i].translated = res[k]; this.done.add(i) }
     })
     this.inflight = false
     if (this.failCount > 0) { this.failCount = 0; this.deps.notify(null) }
+    this.backoff = false
     if (this.running) this.schedule()
   }
 
@@ -104,7 +109,10 @@ export class TranslationScheduler {
     this.inflight = false
     if (this.failCount === 0) this.deps.notify(String(err))
     this.failCount++
+    this.backoff = true
     const delay = Math.min(BACKOFF_BASE_MS * 2 ** this.failCount, BACKOFF_CAP_MS)
-    if (this.running) this.retryId = this.deps.setTimer(() => { this.retryId = undefined; this.schedule() }, delay)
+    if (this.running) {
+      this.retryId = this.deps.setTimer(() => { this.retryId = undefined; this.backoff = false; this.schedule() }, delay)
+    }
   }
 }
