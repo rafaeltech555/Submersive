@@ -25,11 +25,11 @@
 | **DeepL** | 新用戶 Developer 一次性 100 萬字（用完不補） | `deeplKey`（API key） |
 | **Azure Translator** | F0 免費層每月 200 萬字，循環免費 | `azureKey`、`azureRegion`（如 `eastasia`） |
 | **Local LibreTranslate** | 無限、離線、隱私最佳，品質略遜 | `localUrl`（如 `http://localhost:5000`） |
-| **Ollama**（本機 LLM）| 無限、離線、隱私最佳，品質最優 | `ollamaUrl`（如 `http://localhost:11434`）、`ollamaModel`（如 `qwen2.5:7b`） |
+| **Ollama**（本機 LLM）| 無限、離線、隱私最佳，品質最優 | `ollamaUrl`（如 `http://localhost:11434`）、`ollamaModel`（如 `qwen3:4b-instruct`） |
 
 > **LibreTranslate 品質提醒**：使用 Argos 模型，en→zh 尚可；**ja→zh 品質明顯偏弱**（疑似經英文中轉），品質敏感者建議改用 Ollama 或 DeepL。
 
-> **Ollama 使用提醒**：需本機安裝並執行 Ollama，自行 pull 所選模型（如 `ollama pull qwen2.5:7b`）。翻譯品質優於 LibreTranslate，推薦作為本機首選。
+> **Ollama 使用提醒**：需本機安裝並執行 Ollama，自行 pull 所選模型（如 `ollama pull qwen3:4b-instruct`）。翻譯品質優於 LibreTranslate，推薦作為本機首選。
 
 ### Fallback 機制
 
@@ -83,7 +83,7 @@ npm run build
 | `azureRegion` | Azure 資源 region（如 `eastasia`） |
 | `localUrl` | LibreTranslate server URL |
 | `ollamaUrl` | Ollama server URL（如 `http://localhost:11434`） |
-| `ollamaModel` | Ollama 使用的模型名稱（如 `qwen2.5:7b`） |
+| `ollamaModel` | Ollama 使用的模型名稱（如 `qwen3:4b-instruct`） |
 
 ---
 
